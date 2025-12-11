@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Diagnóstico de Probabilidad de Error Humano (SPAR-H)</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="https://i.ibb.co/JjwJvYWG/brainbox.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Fuentes: Bebas Neue (títulos) + Inter (texto) -->
     <style>
@@ -18,6 +22,22 @@
             font-family: 'Bebas Neue', sans-serif;
             letter-spacing: 0.05em;
         }
+
+        /* Animaciones suaves para las vistas */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fadeInUp {
+            animation: fadeInUp 0.4s ease-out;
+        }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
@@ -26,7 +46,10 @@
     <div id="app" class="w-full max-w-4xl bg-white shadow-2xl rounded-xl p-6 sm:p-8 transition-all duration-300">
         <!-- Header con logo Brainbox -->
         <div class="flex flex-col sm:flex-row items-center sm:items-end justify-center sm:justify-start gap-4 mb-6">
-            <img src="https://i.ibb.co/JjwJvYWG/brainbox.png" alt="Strategy Brainbox" class="h-16 sm:h-20 drop-shadow-md">
+            <img src="https://i.ibb.co/JjwJvYWG/brainbox.png"
+                 alt="Strategy Brainbox"
+                 class="h-16 sm:h-20 drop-shadow-md"
+                 crossorigin="anonymous">
             <div class="text-center sm:text-left">
                 <p class="uppercase tracking-[0.2em] text-xs text-[#39b8eb] font-semibold">Strategy Brainbox</p>
                 <h1 class="text-3xl sm:text-4xl font-extrabold text-[#00155c] leading-tight">
@@ -273,6 +296,17 @@
             return true;
         };
 
+        // Formateo del HEP en porcentaje con las reglas definidas
+        const formatHepPercentage = (hep) => {
+            let hepPercentage = hep * 100;
+            if (hep > 0.01) {
+                hepPercentage = hepPercentage.toFixed(1);  // 1 decimal si HEP > 0.01
+            } else {
+                hepPercentage = hepPercentage.toFixed(3);  // 3 decimales si HEP <= 0.01
+            }
+            return hepPercentage.replace('.', ',');
+        };
+
         // 4. Render principal
         const render = () => {
             const contentDiv = document.getElementById('content');
@@ -287,75 +321,83 @@
         // Vista 1: Registro usuario
         const renderRegistration = (container) => {
             container.innerHTML = `
-                <h2 class="text-2xl font-semibold text-[#00155c] mb-4 text-center">Paso 1/4: Registro de Usuario</h2>
-                <p class="text-sm text-gray-500 mb-6 text-center">Debe registrar sus datos para acceder a la herramienta (Campos con * son obligatorios).</p>
-                <div class="space-y-4">
-                    <div>
-                        <label for="nombre-completo" class="block text-sm font-medium text-gray-700">Nombre Completo <span class="text-red-500">*</span></label>
-                        <input type="text" id="nombre-completo" 
-                            value="${state.userData.fullName || ''}" 
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
-                            placeholder="Ej: Juan Pérez"
-                            data-field="fullName"
-                        >
-                    </div>
-                    <div>
-                        <label for="correo" class="block text-sm font-medium text-gray-700">Correo <span class="text-red-500">*</span></label>
-                        <input type="email" id="correo" 
-                            value="${state.userData.email || ''}" 
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
-                            placeholder="Ej: correo@ejemplo.com"
-                            data-field="email"
-                        >
-                    </div>
-                    <div>
-                        <label for="cargo" class="block text-sm font-medium text-gray-700">Cargo <span class="text-red-500">*</span></label>
-                        <input type="text" id="cargo" 
-                            value="${state.userData.position || ''}" 
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
-                            placeholder="Ej: Ingeniero de Seguridad"
-                            data-field="position"
-                        >
-                    </div>
-                    <div>
-                        <label for="empresa" class="block text-sm font-medium text-gray-700">Empresa <span class="text-red-500">*</span></label>
-                        <input type="text" id="empresa" 
-                            value="${state.userData.company || ''}" 
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
-                            placeholder="Ej: Tech Solutions S.A."
-                            data-field="company"
-                        >
-                    </div>
-                    <div>
-                        <label for="celular" class="block text-sm font-medium text-gray-700">Celular (Opcional)</label>
-                        <input type="tel" id="celular" 
-                            value="${state.userData.phone || ''}" 
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
-                            data-field="phone"
-                            placeholder="Solo números. Ej: 3001234567"
-                            pattern="\\d*"
-                        >
-                    </div>
-                    <div class="pt-2">
-                        <label class="inline-flex items-start">
-                            <input 
-                                type="checkbox" 
-                                id="data-policy" 
-                                class="mt-1 h-4 w-4 text-[#1d70b7] border-gray-300 rounded focus:ring-[#1d70b7]"
-                                ${state.userData.dataPolicyAccepted ? 'checked' : ''}
+                <div class="animate-fadeInUp">
+                    <h2 class="text-2xl font-semibold text-[#00155c] mb-3 text-center">Paso 1/4: Registro de Usuario</h2>
+                    <p class="text-sm text-gray-700 mb-3 bg-blue-50 p-3 rounded-md border border-blue-200 text-center">
+                        En este paso tomamos tus datos básicos para poder acompañarte mejor en el análisis de error humano
+                        y, si lo deseas, compartirte recomendaciones personalizadas más adelante.
+                    </p>
+                    <p class="text-xs text-gray-500 mb-6 text-center">
+                        Los campos marcados con <span class="text-red-500">*</span> son obligatorios.
+                    </p>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="nombre-completo" class="block text-sm font-medium text-gray-700">Nombre Completo <span class="text-red-500">*</span></label>
+                            <input type="text" id="nombre-completo" 
+                                value="${state.userData.fullName || ''}" 
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                                placeholder="Ej: Juan Pérez"
+                                data-field="fullName"
                             >
-                            <span class="ml-2 text-sm text-gray-600">
-                                He leído y acepto las 
-                                <a href="https://strategy.com.co/politica-de-tratamiento-de-datos/" target="_blank" class="text-[#1d70b7] underline">
-                                    Políticas de tratamiento de datos
-                                </a>.
-                            </span>
-                        </label>
+                        </div>
+                        <div>
+                            <label for="correo" class="block text-sm font-medium text-gray-700">Correo <span class="text-red-500">*</span></label>
+                            <input type="email" id="correo" 
+                                value="${state.userData.email || ''}" 
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                                placeholder="Ej: correo@ejemplo.com"
+                                data-field="email"
+                            >
+                        </div>
+                        <div>
+                            <label for="cargo" class="block text-sm font-medium text-gray-700">Cargo <span class="text-red-500">*</span></label>
+                            <input type="text" id="cargo" 
+                                value="${state.userData.position || ''}" 
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                                placeholder="Ej: Ingeniero de Seguridad"
+                                data-field="position"
+                            >
+                        </div>
+                        <div>
+                            <label for="empresa" class="block text-sm font-medium text-gray-700">Empresa <span class="text-red-500">*</span></label>
+                            <input type="text" id="empresa" 
+                                value="${state.userData.company || ''}" 
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                                placeholder="Ej: Tech Solutions S.A."
+                                data-field="company"
+                            >
+                        </div>
+                        <div>
+                            <label for="celular" class="block text-sm font-medium text-gray-700">Celular (Opcional)</label>
+                            <input type="tel" id="celular" 
+                                value="${state.userData.phone || ''}" 
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                                data-field="phone"
+                                placeholder="Solo números. Ej: 3001234567"
+                                pattern="\\d*"
+                            >
+                        </div>
+                        <div class="pt-2">
+                            <label class="inline-flex items-start">
+                                <input 
+                                    type="checkbox" 
+                                    id="data-policy" 
+                                    class="mt-1 h-4 w-4 text-[#1d70b7] border-gray-300 rounded focus:ring-[#1d70b7]"
+                                    ${state.userData.dataPolicyAccepted ? 'checked' : ''}
+                                >
+                                <span class="ml-2 text-sm text-gray-600">
+                                    He leído y acepto las 
+                                    <a href="https://strategy.com.co/politica-de-tratamiento-de-datos/" target="_blank" class="text-[#1d70b7] underline">
+                                        Políticas de tratamiento de datos
+                                    </a>.
+                                </span>
+                            </label>
+                        </div>
                     </div>
+                    <button id="next-step-1" class="w-full mt-6 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#1d70b7] hover:bg-[#00155c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
+                        Siguiente (Paso 2)
+                    </button>
                 </div>
-                <button id="next-step-1" class="w-full mt-6 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#1d70b7] hover:bg-[#00155c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
-                    Siguiente (Paso 2)
-                </button>
             `;
 
             container.querySelectorAll('input[data-field]').forEach(input => {
@@ -388,31 +430,37 @@
         // Vista 2: Actividad
         const renderActivity = (container) => {
             container.innerHTML = `
-                <h2 class="text-2xl font-semibold text-[#00155c] mb-4 text-center">Paso 2/4: Registro de Actividad</h2>
-                <div class="space-y-4">
-                    <div>
-                        <label for="activity-name" class="block text-sm font-medium text-gray-700">Nombre de la Actividad <span class="text-red-500">*</span></label>
-                        <input type="text" id="activity-name" 
-                            value="${state.activityData.name || ''}" 
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
-                            placeholder="Ej: Reemplazo de Filtro de Aire"
-                        >
+                <div class="animate-fadeInUp">
+                    <h2 class="text-2xl font-semibold text-[#00155c] mb-3 text-center">Paso 2/4: Registro de Actividad</h2>
+                    <p class="text-sm text-gray-700 mb-4 bg-blue-50 p-3 rounded-md border border-blue-200 text-center">
+                        Ahora definiremos la actividad o tarea humana que quieres analizar. 
+                        Entre más claro sea el contexto, más útil será la interpretación del resultado del diagnóstico SPAR-H.
+                    </p>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="activity-name" class="block text-sm font-medium text-gray-700">Nombre de la Actividad <span class="text-red-500">*</span></label>
+                            <input type="text" id="activity-name" 
+                                value="${state.activityData.name || ''}" 
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                                placeholder="Ej: Reemplazo de Filtro de Aire"
+                            >
+                        </div>
+                        <div>
+                            <label for="activity-description" class="block text-sm font-medium text-gray-700">Descripción Breve <span class="text-red-500">*</span></label>
+                            <textarea id="activity-description" rows="3" 
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                                placeholder="Describe el paso de la tarea humana que está siendo evaluado (p. ej. 'El técnico debe verificar el torque de las tuercas')."
+                            >${state.activityData.description || ''}</textarea>
+                        </div>
                     </div>
-                    <div>
-                        <label for="activity-description" class="block text-sm font-medium text-gray-700">Descripción Breve <span class="text-red-500">*</span></label>
-                        <textarea id="activity-description" rows="3" 
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
-                            placeholder="Describe el paso de la tarea humana que está siendo evaluado (p. ej. 'El técnico debe verificar el torque de las tuercas')."
-                        >${state.activityData.description || ''}</textarea>
+                    <div class="flex justify-between mt-6">
+                        <button id="back-step-2" class="py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
+                            Volver (Paso 1)
+                        </button>
+                        <button id="next-step-2" class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#1d70b7] hover:bg-[#00155c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
+                            Siguiente (Paso 3: Cálculo)
+                        </button>
                     </div>
-                </div>
-                <div class="flex justify-between mt-6">
-                    <button id="back-step-2" class="py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
-                        Volver (Paso 1)
-                    </button>
-                    <button id="next-step-2" class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#1d70b7] hover:bg-[#00155c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
-                        Siguiente (Paso 3: Cálculo)
-                    </button>
                 </div>
             `;
 
@@ -475,17 +523,25 @@
             `;
 
             container.innerHTML = `
-                <h2 class="text-2xl font-semibold text-[#00155c] mb-4 text-center">Paso 3/4: Parámetros SPAR-H</h2>
-                <p class="text-sm text-gray-500 mb-6 text-center">Seleccione el tipo de tarea y un nivel para cada factor PSF.</p>
-                ${taskTypeHtml}
-                ${psfHtml}
-                <div class="flex justify-between mt-8">
-                    <button id="back-step-3" class="py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
-                        Volver (Paso 2)
-                    </button>
-                    <button id="calculate-result" class="py-2 px-6 border border-transparent rounded-md shadow-lg text-lg font-bold text-white bg-[#1d70b7] hover:bg-[#00155c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150 transform hover:scale-105">
-                        Calcular Resultado
-                    </button>
+                <div class="animate-fadeInUp">
+                    <h2 class="text-2xl font-semibold text-[#00155c] mb-3 text-center">Paso 3/4: Parámetros SPAR-H</h2>
+                    <p class="text-sm text-gray-700 mb-4 bg-blue-50 p-3 rounded-md border border-blue-200 text-center">
+                        En este paso seleccionas el tipo de tarea y los factores de desempeño (PSF) que influyen en el error humano.
+                        Estos parámetros determinan cómo las condiciones reales de trabajo afectan la probabilidad de error.
+                    </p>
+                    <p class="text-xs text-gray-500 mb-6 text-center">
+                        Selecciona un solo nivel por cada uno de los factores PSF listados.
+                    </p>
+                    ${taskTypeHtml}
+                    ${psfHtml}
+                    <div class="flex justify-between mt-8">
+                        <button id="back-step-3" class="py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duración-150">
+                            Volver (Paso 2)
+                        </button>
+                        <button id="calculate-result" class="py-2 px-6 border border-transparent rounded-md shadow-lg text-lg font-bold text-white bg-[#1d70b7] hover:bg-[#00155c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duración-150 transform hover:scale-105">
+                            Calcular Resultado
+                        </button>
+                    </div>
                 </div>
             `;
             
@@ -630,55 +686,64 @@
         // Vista 4: Resultado
         const renderResult = (container) => {
             const resultData = state.result;
-            const hepPercentage = (resultData.hep * 100).toFixed(3).replace('.', ',');
+            const hepPercentage = formatHepPercentage(resultData.hep);
             const classData = resultData.classification;
 
             container.innerHTML = `
-                <h2 class="text-2xl font-semibold text-[#00155c] mb-4 text-center">Paso 4/4: Resultado del Diagnóstico HEP</h2>
-                <p class="text-sm text-gray-500 mb-6 text-center">Análisis de la actividad: <span class="font-medium text-gray-700">${state.activityData.name}</span></p>
-                
-                <div class="p-6 rounded-xl shadow-inner border-4 ${classData.color.replace('bg-', 'border-')}">
-                    <div class="flex flex-col sm:flex-row items-center justify-between mb-4">
-                        <p class="text-2xl font-semibold text-gray-700">Probabilidad de Error Humano (HEP):</p>
-                        <p class="text-5xl font-extrabold ${classData.color.replace('bg-', 'text-')}">${hepPercentage}%</p>
+                <div class="animate-fadeInUp" id="result-view">
+                    <h2 class="text-2xl font-semibold text-[#00155c] mb-3 text-center">Paso 4/4: Resultado del Diagnóstico HEP</h2>
+                    <p class="text-sm text-gray-700 mb-4 bg-blue-50 p-3 rounded-md border border-blue-200 text-center">
+                        A continuación verás la probabilidad de error humano estimada (HEP), su clasificación de riesgo
+                        y recomendaciones generales para reducir la probabilidad de error en la tarea evaluada.
+                    </p>
+                    <p class="text-sm text-gray-500 mb-6 text-center">
+                        Análisis de la actividad: <span class="font-medium text-gray-700">${state.activityData.name}</span>
+                    </p>
+                    
+                    <div class="p-6 rounded-xl shadow-inner border-4 ${classData.color.replace('bg-', 'border-')}">
+                        <div class="flex flex-col sm:flex-row items-center justify-between mb-4">
+                            <p class="text-2xl font-semibold text-gray-700">Probabilidad de Error Humano (HEP):</p>
+                            <p class="text-5xl font-extrabold ${classData.color.replace('bg-', 'text-')}">${hepPercentage}%</p>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div>
+                                <p class="font-bold text-gray-800">Clasificación de riesgo humano:</p>
+                                <span class="inline-block px-3 py-1 text-sm font-semibold text-white rounded-full ${classData.color}">${classData.class}</span>
+                            </div>
+                            
+                            <div>
+                                <p class="font-bold text-gray-800">Interpretación:</p>
+                                <p class="text-gray-600">${classData.interpretation}</p>
+                            </div>
+
+                            <div>
+                                <p class="font-bold text-gray-800">Recomendaciones:</p>
+                                <p class="text-gray-600">${classData.recommendations}</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="space-y-3">
-                        <div>
-                            <p class="font-bold text-gray-800">Clasificación de riesgo humano:</p>
-                            <span class="inline-block px-3 py-1 text-sm font-semibold text-white rounded-full ${classData.color}">${classData.class}</span>
-                        </div>
-                        
-                        <div>
-                            <p class="font-bold text-gray-800">Interpretación:</p>
-                            <p class="text-gray-600">${classData.interpretation}</p>
-                        </div>
-
-                        <div>
-                            <p class="font-bold text-gray-800">Recomendaciones:</p>
-                            <p class="text-gray-600">${classData.recommendations}</p>
-                        </div>
+                    <!-- Bloque de contacto Brainbox -->
+                    <div class="mt-6 p-4 rounded-lg bg-[#e6f3ff] border border-[#1d70b7]">
+                        <p class="font-semibold text-[#00155c] mb-1">
+                            ¿Te gustaría que revisemos juntos tus resultados y te propongamos un siguiente paso a la medida de tu organización?
+                        </p>
+                        <p class="text-gray-700 text-sm sm:text-base">
+                            Escríbenos al correo 
+                            <a href="mailto:strategybrainbox@strategy.com.co" class="text-[#1d70b7] font-semibold underline">
+                                strategybrainbox@strategy.com.co
+                            </a>.
+                        </p>
                     </div>
-                </div>
 
-                <!-- Bloque de contacto Brainbox -->
-                <div class="mt-6 p-4 rounded-lg bg-[#e6f3ff] border border-[#1d70b7]">
-                    <p class="font-semibold text-[#00155c] mb-1">
-                        ¿Te gustaría que revisemos juntos tus resultados y te propongamos un siguiente paso a la medida de tu organización?
-                    </p>
-                    <p class="text-gray-700 text-sm sm:text-base">
-                        Escríbenos al correo 
-                        <a href="mailto:strategybrainbox@strategy.com.co" class="text-[#1d70b7] font-semibold underline">
-                            strategybrainbox@strategy.com.co
-                        </a>.
-                    </p>
+                    <button id="recalculate" class="w-full mt-6 py-3 px-4 border border-transparent rounded-md shadow-sm text-md font-medium text-white bg-[#39b8eb] hover:bg-[#1d70b7] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
+                        Calcular de nuevo
+                    </button>
                 </div>
-
-                <button id="recalculate" class="w-full mt-8 py-3 px-4 border border-transparent rounded-md shadow-sm text-md font-medium text-white bg-[#39b8eb] hover:bg-[#1d70b7] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
-                    Calcular de nuevo
-                </button>
             `;
 
+            // Botón para recalcular
             document.getElementById('recalculate').addEventListener('click', () => {
                 state = {
                     step: 1,
@@ -700,3 +765,4 @@
     </script>
 </body>
 </html>
+
