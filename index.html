@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnóstico de Probabilidad de Error Humano (SPAR-H)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fuentes: Bebas Neue (títulos) + Inter (texto) -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@100..900&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #00155c, #1d70b7);
+        }
+
+        h1, h2, h3, .font-display {
+            font-family: 'Bebas Neue', sans-serif;
+            letter-spacing: 0.05em;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- Contenedor Principal de la Aplicación -->
+    <div id="app" class="w-full max-w-4xl bg-white shadow-2xl rounded-xl p-6 sm:p-8 transition-all duration-300">
+        <!-- Header con logo Brainbox -->
+        <div class="flex flex-col sm:flex-row items-center sm:items-end justify-center sm:justify-start gap-4 mb-6">
+            <img src="https://i.ibb.co/JjwJvYWG/brainbox.png" alt="Strategy Brainbox" class="h-16 sm:h-20 drop-shadow-md">
+            <div class="text-center sm:text-left">
+                <p class="uppercase tracking-[0.2em] text-xs text-[#39b8eb] font-semibold">Strategy Brainbox</p>
+                <h1 class="text-3xl sm:text-4xl font-extrabold text-[#00155c] leading-tight">
+                    Diagnóstico HEP (SPAR-H)
+                </h1>
+            </div>
+        </div>
+
+        <div id="content">
+            <!-- El contenido de la herramienta se renderizará aquí -->
+            <p class="text-center text-gray-500">Cargando herramienta...</p>
+        </div>
+        
+        <!-- Contenedor para mensajes de validación o estado -->
+        <div id="message-box" class="mt-4 p-3 bg-red-100 text-red-700 border border-red-300 rounded-lg hidden"></div>
+        
+    </div>
+
+    <!-- Script Principal -->
+    <script type="module">
+        // --- Configuración Power Automate ---
+        const PA_ENDPOINT = "https://default8bf4cc2d4c114c129cc2a472854e3b.f2.environment.api.powerplatform.com/powerautomate/automations/direct/workflows/5eef92e573e14e11829c5d2d2582bfb8/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=LIA2F8EWdSFWSbAnrsCBaUzE6-cPyXIphZsyw-9yyAo";
+
+        // 1. Datos constantes
+        const BEP_VALUES = {
+            'Diagnóstico': { 
+                value: 0.01, 
+                example: 'Por ejemplo: analizar lectura de termografía para decidir si se reemplaza un punto caliente' 
+            },
+            'Acción': { 
+                value: 0.001, 
+                example: 'Por ejemplo: realizar limpieza de un componente' 
+            }
+        };
+
+        const psfData = [
+            {
+                id: 'infoAvailability',
+                name: '1. Disponibilidad y calidad de la información',
+                levels: [
+                    { desc: 'Nominal: La información requerida está disponible, clara y oportuna.', multiplier: 1 },
+                    { desc: 'Degradada: Información incompleta, accesibilidad limitada o requiere interpretación extra.', multiplier: 2 },
+                    { desc: 'Muy pobre: Información incorrecta, contradictoria o ausente.', multiplier: 5 },
+                ]
+            },
+            {
+                id: 'skillExperience',
+                name: '2. Habilidad / Entrenamiento',
+                levels: [
+                    { desc: 'Muy buena: Experiencia significativa, habilidades afianzadas, práctica continua.', multiplier: 0.5 },
+                    { desc: 'Nominal: Habilidad adecuada al cargo, entrenamiento satisfactorio.', multiplier: 1 },
+                    { desc: 'Baja: Entrenamiento insuficiente, poca familiaridad con la tarea.', multiplier: 2 },
+                ]
+            },
+            {
+                id: 'procedures',
+                name: '3. Procedimientos',
+                levels: [
+                    { desc: 'Muy buenos: Procedimientos claros, actualizados, detallados y fáciles de seguir.', multiplier: 0.5 },
+                    { desc: 'Nominales: Adecuados para completar la tarea, pero no perfectos.', multiplier: 1 },
+                    { desc: 'Inadecuados / pobres: Ausentes, confusos, desactualizados o no aplicables.', multiplier: 5 },
+                ]
+            },
+            {
+                id: 'timeAvailable',
+                name: '4. Disponibilidad de tiempo',
+                levels: [
+                    { desc: 'Más que suficiente: El tiempo es holgado, sin presión.', multiplier: 0.5 },
+                    { desc: 'Adecuado: Tiempo suficiente para completar la tarea sin estrés.', multiplier: 1 },
+                    { desc: 'Insuficiente: El operador está bajo presión, requiere acción rápida.', multiplier: 2 },
+                    { desc: 'Extremadamente insuficiente: Decisión inmediata, riesgo de acción precipitada.', multiplier: 10 },
+                ]
+            },
+            {
+                id: 'stressWorkload',
+                name: '5. Estrés / Carga de trabajo',
+                levels: [
+                    { desc: 'Bajo: Entorno calmado, carga razonable.', multiplier: 0.5 },
+                    { desc: 'Nominal: Carga esperada del rol.', multiplier: 1 },
+                    { desc: 'Moderado: Estrés perceptible, múltiples tareas.', multiplier: 2 },
+                    { desc: 'Alto: Sobrecarga significativa, presión intensa.', multiplier: 5 },
+                ]
+            },
+            {
+                id: 'taskComplexity',
+                name: '6. Complejidad de la tarea',
+                levels: [
+                    { desc: 'Baja: Tarea simple, familiar y lineal.', multiplier: 0.5 },
+                    { desc: 'Nominal: Complejidad típica esperada.', multiplier: 1 },
+                    { desc: 'Alta: Interacciones múltiples, varios pasos, alto riesgo de confusión.', multiplier: 2 },
+                ]
+            },
+            {
+                id: 'workEnvironment',
+                name: '7. Factores del ambiente y ergonomía',
+                levels: [
+                    { desc: 'Bueno: Espacio adecuado, ergonomía óptima, iluminación correcta.', multiplier: 0.5 },
+                    { desc: 'Nominal: Condiciones aceptables, sin afectar significativamente la tarea.', multiplier: 1 },
+                    { desc: 'Pobre: Ruido, vibración, iluminación deficiente, condiciones incómodas.', multiplier: 5 },
+                ]
+            },
+            {
+                id: 'teamwork',
+                name: '8. Trabajo en equipo / Comunicaciones',
+                levels: [
+                    { desc: 'Excelente: Coordinación fluida, comunicación efectiva, roles claros.', multiplier: 0.5 },
+                    { desc: 'Nominal: Colaboración adecuada con algunos errores menores.', multiplier: 1 },
+                    { desc: 'Pobre: Comunicación deficiente, conflictos, roles poco claros.', multiplier: 3 },
+                ]
+            }
+        ];
+
+        // Tabla de clasificación (rangos continuos)
+        const classificationTable = [
+            {
+                min: 0.0000,
+                max: 0.0099,
+                class: 'Muy Bajo',
+                color: 'bg-green-600',
+                interpretation: 'Error improbable',
+                recommendations: 'No se requieren mejoras; mantener monitoreo.'
+            },
+            {
+                min: 0.0100,
+                max: 0.0499,
+                class: 'Bajo',
+                color: 'bg-lime-600',
+                interpretation: 'Error poco frecuente',
+                recommendations: 'Mejoras menores: claridad de procedimientos, entrenamiento puntual.'
+            },
+            {
+                min: 0.0500,
+                max: 0.1499,
+                class: 'Moderado',
+                color: 'bg-yellow-500',
+                interpretation: 'Error posible',
+                recommendations: 'Revisar 2–3 PSFs clave; rediseño parcial del proceso; entrenamiento adicional.'
+            },
+            {
+                min: 0.1500,
+                max: 0.3999,
+                class: 'Alto',
+                color: 'bg-orange-600',
+                interpretation: 'El error es probable',
+                recommendations: 'Rediseño importante: reducir estrés, mejorar procedimientos, considerar automatización de tareas críticas.'
+            },
+            {
+                min: 0.4000,
+                max: 0.6999,
+                class: 'Muy Alto',
+                color: 'bg-red-600',
+                interpretation: 'El error es altamente probable',
+                recommendations: 'Cambios urgentes: rediseño, automatización, controles en línea, refuerzo de supervisión.'
+            },
+            {
+                min: 0.7000,
+                max: 0.9990,
+                class: 'Crítico / Inaceptable',
+                color: 'bg-red-800',
+                interpretation: 'El error ocurrirá casi seguro',
+                recommendations: 'Intervención inmediata: rediseño total del sistema, eliminación de la dependencia exclusiva en el factor humano.'
+            }
+        ];
+
+        // 2. Estado de la aplicación
+        let state = {
+            step: 1,
+            userData: {
+                fullName: '',
+                email: '',
+                phone: '',
+                position: '',
+                company: '',
+                dataPolicyAccepted: false
+            },
+            activityData: {
+                name: '',
+                description: ''
+            },
+            calculationData: {
+                taskType: null,
+                psfSelections: {}
+            },
+            result: null
+        };
+
+        // 3. Funciones de ayuda
+        const showMessage = (message, type = 'error') => {
+            const box = document.getElementById('message-box');
+            box.textContent = message;
+            box.classList.remove('hidden', 'bg-red-100', 'bg-green-100', 'text-red-700', 'text-green-700', 'border-red-300', 'border-green-300');
+            if (type === 'error') {
+                box.classList.add('bg-red-100', 'text-red-700', 'border-red-300');
+            } else {
+                box.classList.add('bg-green-100', 'text-green-700', 'border-green-300');
+            }
+            setTimeout(() => box.classList.add('hidden'), 5000);
+        };
+
+        const validateRegistration = () => {
+            const data = state.userData;
+            if (!data.fullName || !data.email || !data.position || !data.company) {
+                showMessage('Por favor, complete todos los campos obligatorios (*).');
+                return false;
+            }
+            if (!data.email.includes('@')) {
+                showMessage('El campo Correo debe contener un símbolo "@" válido.');
+                return false;
+            }
+            if (data.phone && !/^\d*$/.test(data.phone)) {
+                showMessage('El campo Celular solo debe contener números.');
+                return false;
+            }
+            if (!data.dataPolicyAccepted) {
+                showMessage('Para continuar debe leer y aceptar las Políticas de tratamiento de datos.');
+                return false;
+            }
+            return true;
+        };
+
+        const validateActivity = () => {
+            const data = state.activityData;
+            if (!data.name || !data.description) {
+                showMessage('Por favor, ingrese el nombre y la descripción de la actividad.');
+                return false;
+            }
+            return true;
+        };
+        
+        const validateInputs = () => {
+            if (!state.calculationData.taskType) {
+                showMessage('Por favor, seleccione el Tipo de Tarea.');
+                return false;
+            }
+            
+            const psfCount = psfData.length;
+            const validPsfSelections = Object.values(state.calculationData.psfSelections)
+                .filter(val => !isNaN(val)); 
+
+            if (validPsfSelections.length !== psfCount) {
+                showMessage(`Por favor, seleccione un nivel para cada uno de los ${psfCount} Factores de Desempeño (PSF).`);
+                return false;
+            }
+            return true;
+        };
+
+        // 4. Render principal
+        const render = () => {
+            const contentDiv = document.getElementById('content');
+            contentDiv.innerHTML = '';
+
+            if (state.step === 1) renderRegistration(contentDiv);
+            else if (state.step === 2) renderActivity(contentDiv);
+            else if (state.step === 3) renderInput(contentDiv);
+            else if (state.step === 4) renderResult(contentDiv);
+        };
+
+        // Vista 1: Registro usuario
+        const renderRegistration = (container) => {
+            container.innerHTML = `
+                <h2 class="text-2xl font-semibold text-[#00155c] mb-4 text-center">Paso 1/4: Registro de Usuario</h2>
+                <p class="text-sm text-gray-500 mb-6 text-center">Debe registrar sus datos para acceder a la herramienta (Campos con * son obligatorios).</p>
+                <div class="space-y-4">
+                    <div>
+                        <label for="nombre-completo" class="block text-sm font-medium text-gray-700">Nombre Completo <span class="text-red-500">*</span></label>
+                        <input type="text" id="nombre-completo" 
+                            value="${state.userData.fullName || ''}" 
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                            placeholder="Ej: Juan Pérez"
+                            data-field="fullName"
+                        >
+                    </div>
+                    <div>
+                        <label for="correo" class="block text-sm font-medium text-gray-700">Correo <span class="text-red-500">*</span></label>
+                        <input type="email" id="correo" 
+                            value="${state.userData.email || ''}" 
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                            placeholder="Ej: correo@ejemplo.com"
+                            data-field="email"
+                        >
+                    </div>
+                    <div>
+                        <label for="cargo" class="block text-sm font-medium text-gray-700">Cargo <span class="text-red-500">*</span></label>
+                        <input type="text" id="cargo" 
+                            value="${state.userData.position || ''}" 
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                            placeholder="Ej: Ingeniero de Seguridad"
+                            data-field="position"
+                        >
+                    </div>
+                    <div>
+                        <label for="empresa" class="block text-sm font-medium text-gray-700">Empresa <span class="text-red-500">*</span></label>
+                        <input type="text" id="empresa" 
+                            value="${state.userData.company || ''}" 
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                            placeholder="Ej: Tech Solutions S.A."
+                            data-field="company"
+                        >
+                    </div>
+                    <div>
+                        <label for="celular" class="block text-sm font-medium text-gray-700">Celular (Opcional)</label>
+                        <input type="tel" id="celular" 
+                            value="${state.userData.phone || ''}" 
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                            data-field="phone"
+                            placeholder="Solo números. Ej: 3001234567"
+                            pattern="\\d*"
+                        >
+                    </div>
+                    <div class="pt-2">
+                        <label class="inline-flex items-start">
+                            <input 
+                                type="checkbox" 
+                                id="data-policy" 
+                                class="mt-1 h-4 w-4 text-[#1d70b7] border-gray-300 rounded focus:ring-[#1d70b7]"
+                                ${state.userData.dataPolicyAccepted ? 'checked' : ''}
+                            >
+                            <span class="ml-2 text-sm text-gray-600">
+                                He leído y acepto las 
+                                <a href="https://strategy.com.co/politica-de-tratamiento-de-datos/" target="_blank" class="text-[#1d70b7] underline">
+                                    Políticas de tratamiento de datos
+                                </a>.
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                <button id="next-step-1" class="w-full mt-6 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#1d70b7] hover:bg-[#00155c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
+                    Siguiente (Paso 2)
+                </button>
+            `;
+
+            container.querySelectorAll('input[data-field]').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const field = e.target.dataset.field;
+                    let value = e.target.value;
+                    if (field === 'phone') {
+                        value = value.replace(/\D/g, '');
+                        e.target.value = value;
+                    }
+                    state.userData[field] = value;
+                });
+            });
+
+            const dataPolicyCheckbox = document.getElementById('data-policy');
+            if (dataPolicyCheckbox) {
+                dataPolicyCheckbox.addEventListener('change', (e) => {
+                    state.userData.dataPolicyAccepted = e.target.checked;
+                });
+            }
+
+            document.getElementById('next-step-1').addEventListener('click', () => {
+                if (validateRegistration()) {
+                    state.step = 2;
+                    render();
+                }
+            });
+        };
+
+        // Vista 2: Actividad
+        const renderActivity = (container) => {
+            container.innerHTML = `
+                <h2 class="text-2xl font-semibold text-[#00155c] mb-4 text-center">Paso 2/4: Registro de Actividad</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="activity-name" class="block text-sm font-medium text-gray-700">Nombre de la Actividad <span class="text-red-500">*</span></label>
+                        <input type="text" id="activity-name" 
+                            value="${state.activityData.name || ''}" 
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                            placeholder="Ej: Reemplazo de Filtro de Aire"
+                        >
+                    </div>
+                    <div>
+                        <label for="activity-description" class="block text-sm font-medium text-gray-700">Descripción Breve <span class="text-red-500">*</span></label>
+                        <textarea id="activity-description" rows="3" 
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                            placeholder="Describe el paso de la tarea humana que está siendo evaluado (p. ej. 'El técnico debe verificar el torque de las tuercas')."
+                        >${state.activityData.description || ''}</textarea>
+                    </div>
+                </div>
+                <div class="flex justify-between mt-6">
+                    <button id="back-step-2" class="py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
+                        Volver (Paso 1)
+                    </button>
+                    <button id="next-step-2" class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#1d70b7] hover:bg-[#00155c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
+                        Siguiente (Paso 3: Cálculo)
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('activity-name').addEventListener('input', (e) => state.activityData.name = e.target.value);
+            document.getElementById('activity-description').addEventListener('input', (e) => state.activityData.description = e.target.value);
+            
+            document.getElementById('back-step-2').addEventListener('click', () => {
+                state.step = 1;
+                render();
+            });
+            document.getElementById('next-step-2').addEventListener('click', () => {
+                if (validateActivity()) {
+                    state.step = 3;
+                    render();
+                }
+            });
+        };
+
+        // Vista 3: Parámetros SPAR-H
+        const renderInput = (container) => {
+            let taskTypeHtml = `
+                <div class="mb-8 p-4 border border-[#1d70b7] rounded-lg bg-[#e6f3ff]">
+                    <h3 class="text-lg font-bold text-[#00155c] mb-3">4.1 Tipo de Tarea (Base Error Probability - BEP)</h3>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        ${Object.keys(BEP_VALUES).map(type => `
+                            <label class="flex items-start space-x-2 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer flex-1 hover:shadow-md transition duration-150">
+                                <input type="radio" name="task-type" value="${type}" 
+                                    class="mt-1 text-[#1d70b7] focus:ring-[#1d70b7]" 
+                                    ${state.calculationData.taskType === type ? 'checked' : ''}>
+                                <div>
+                                    <span class="font-medium text-gray-900">${type}</span>
+                                    <span class="text-sm text-gray-500 block">${BEP_VALUES[type].example}</span>
+                                </div>
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            let psfHtml = `
+                <div class="space-y-8">
+                    <h3 class="text-lg font-bold text-[#00155c] border-b pb-2 mb-4">4.2 Factores de Desempeño (PSF) - Seleccione un nivel por factor</h3>
+                    ${psfData.map(psf => `
+                        <div class="border p-4 rounded-lg shadow-sm bg-white">
+                            <h4 class="text-md font-semibold text-gray-700 mb-3">${psf.name}</h4>
+                            <select id="${psf.id}" 
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#1d70b7] focus:border-[#1d70b7]"
+                                data-psf-id="${psf.id}"
+                            >
+                                <option value="" disabled ${!state.calculationData.psfSelections[psf.id] ? 'selected' : ''}>Seleccione un nivel...</option>
+                                ${psf.levels.map(level => `
+                                    <option value="${level.multiplier}" ${state.calculationData.psfSelections[psf.id] == level.multiplier ? 'selected' : ''}>
+                                        ${level.desc}
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            container.innerHTML = `
+                <h2 class="text-2xl font-semibold text-[#00155c] mb-4 text-center">Paso 3/4: Parámetros SPAR-H</h2>
+                <p class="text-sm text-gray-500 mb-6 text-center">Seleccione el tipo de tarea y un nivel para cada factor PSF.</p>
+                ${taskTypeHtml}
+                ${psfHtml}
+                <div class="flex justify-between mt-8">
+                    <button id="back-step-3" class="py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
+                        Volver (Paso 2)
+                    </button>
+                    <button id="calculate-result" class="py-2 px-6 border border-transparent rounded-md shadow-lg text-lg font-bold text-white bg-[#1d70b7] hover:bg-[#00155c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150 transform hover:scale-105">
+                        Calcular Resultado
+                    </button>
+                </div>
+            `;
+            
+            container.querySelectorAll('input[name="task-type"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    state.calculationData.taskType = e.target.value;
+                });
+            });
+
+            psfData.forEach(psf => {
+                const selectElement = document.getElementById(psf.id);
+                if (selectElement) {
+                    selectElement.addEventListener('change', (e) => {
+                        state.calculationData.psfSelections[psf.id] = parseFloat(e.target.value);
+                    });
+                }
+            });
+
+            document.getElementById('back-step-3').addEventListener('click', () => {
+                state.step = 2;
+                render();
+            });
+
+            document.getElementById('calculate-result').addEventListener('click', () => {
+                if (validateInputs()) {
+                    calculateHEP();
+                    state.step = 4;
+                    render();
+                }
+            });
+        };
+
+        // --- Envío a Power Automate (sin notificar al usuario) ---
+        const buildPayloadForPowerAutomate = () => {
+            const user = state.userData;
+            const activity = state.activityData;
+            const { taskType, psfSelections } = state.calculationData;
+            const { hep, classification } = state.result;
+
+            const bep = BEP_VALUES[taskType].value;
+
+            const psfsPayload = psfData.map(psf => {
+                const selectedMultiplier = psfSelections[psf.id];
+                const level = psf.levels.find(l => l.multiplier === selectedMultiplier) || {};
+                return {
+                    id: psf.id,
+                    name: psf.name,
+                    selectedLevelDescription: level.desc || '',
+                    multiplier: selectedMultiplier
+                };
+            });
+
+            const hepPercent = Number((hep * 100).toFixed(3));
+
+            return {
+                user: {
+                    fullName: user.fullName,
+                    email: user.email,
+                    phone: user.phone || null,
+                    position: user.position,
+                    company: user.company
+                },
+                activity: {
+                    name: activity.name,
+                    description: activity.description
+                },
+                task: {
+                    type: taskType,
+                    bep: bep
+                },
+                psfs: psfsPayload,
+                result: {
+                    hep: hep,
+                    hepPercent: hepPercent,
+                    classification: classification.class,
+                    classificationColor: classification.color,
+                    interpretation: classification.interpretation,
+                    recommendations: classification.recommendations,
+                    rangeMin: classification.min,
+                    rangeMax: classification.max
+                },
+                metadata: {
+                    timestamp: new Date().toISOString(),
+                    version: "SPARH-HEP-Tool-v1"
+                }
+            };
+        };
+
+        const sendToPowerAutomate = async () => {
+            const payload = buildPayloadForPowerAutomate();
+
+            try {
+                const response = await fetch(PA_ENDPOINT, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const text = await response.text().catch(() => "");
+                    console.error("Error al enviar a Power Automate:", response.status, text);
+                }
+            } catch (error) {
+                console.error("Error de red al enviar a Power Automate:", error);
+            }
+        };
+
+        // 5. Cálculo HEP
+        const calculateHEP = () => {
+            const { taskType, psfSelections } = state.calculationData;
+
+            const BEP = BEP_VALUES[taskType].value;
+            let multiplierProduct = 1;
+
+            Object.values(psfSelections).forEach(multiplier => {
+                multiplierProduct *= multiplier;
+            });
+
+            let hep = BEP * multiplierProduct;
+
+            const maxHep = 0.999;
+            if (hep > maxHep) {
+                hep = maxHep;
+            }
+
+            let classification = classificationTable.find(c => hep >= c.min && hep <= c.max);
+            if (!classification) {
+                classification = classificationTable[classificationTable.length - 1];
+            }
+
+            state.result = {
+                hep: hep,
+                classification: classification
+            };
+
+            // Enviar a Power Automate (sin mostrar nada al usuario)
+            sendToPowerAutomate().catch(err => console.error("Error inesperado en envío a PA:", err));
+        };
+
+        // Vista 4: Resultado
+        const renderResult = (container) => {
+            const resultData = state.result;
+            const hepPercentage = (resultData.hep * 100).toFixed(3).replace('.', ',');
+            const classData = resultData.classification;
+
+            container.innerHTML = `
+                <h2 class="text-2xl font-semibold text-[#00155c] mb-4 text-center">Paso 4/4: Resultado del Diagnóstico HEP</h2>
+                <p class="text-sm text-gray-500 mb-6 text-center">Análisis de la actividad: <span class="font-medium text-gray-700">${state.activityData.name}</span></p>
+                
+                <div class="p-6 rounded-xl shadow-inner border-4 ${classData.color.replace('bg-', 'border-')}">
+                    <div class="flex flex-col sm:flex-row items-center justify-between mb-4">
+                        <p class="text-2xl font-semibold text-gray-700">Probabilidad de Error Humano (HEP):</p>
+                        <p class="text-5xl font-extrabold ${classData.color.replace('bg-', 'text-')}">${hepPercentage}%</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div>
+                            <p class="font-bold text-gray-800">Clasificación de riesgo humano:</p>
+                            <span class="inline-block px-3 py-1 text-sm font-semibold text-white rounded-full ${classData.color}">${classData.class}</span>
+                        </div>
+                        
+                        <div>
+                            <p class="font-bold text-gray-800">Interpretación:</p>
+                            <p class="text-gray-600">${classData.interpretation}</p>
+                        </div>
+
+                        <div>
+                            <p class="font-bold text-gray-800">Recomendaciones:</p>
+                            <p class="text-gray-600">${classData.recommendations}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bloque de contacto Brainbox -->
+                <div class="mt-6 p-4 rounded-lg bg-[#e6f3ff] border border-[#1d70b7]">
+                    <p class="font-semibold text-[#00155c] mb-1">
+                        ¿Te gustaría que revisemos juntos tus resultados y te propongamos un siguiente paso a la medida de tu organización?
+                    </p>
+                    <p class="text-gray-700 text-sm sm:text-base">
+                        Escríbenos al correo 
+                        <a href="mailto:strategybrainbox@strategy.com.co" class="text-[#1d70b7] font-semibold underline">
+                            strategybrainbox@strategy.com.co
+                        </a>.
+                    </p>
+                </div>
+
+                <button id="recalculate" class="w-full mt-8 py-3 px-4 border border-transparent rounded-md shadow-sm text-md font-medium text-white bg-[#39b8eb] hover:bg-[#1d70b7] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1d70b7] transition duration-150">
+                    Calcular de nuevo
+                </button>
+            `;
+
+            document.getElementById('recalculate').addEventListener('click', () => {
+                state = {
+                    step: 1,
+                    userData: state.userData,
+                    activityData: { name: '', description: '' },
+                    calculationData: { taskType: null, psfSelections: {} },
+                    result: null
+                };
+                render();
+            });
+        };
+
+        // Inicializar app
+        const initApp = () => {
+            render();
+        };
+        
+        initApp();
+    </script>
+</body>
+</html>
